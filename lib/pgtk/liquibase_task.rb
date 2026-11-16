@@ -156,7 +156,7 @@ class Pgtk::LiquibaseTask < Rake::TaskLib
 
   def dockerdump(yml, host, password)
     donce(
-      image: 'postgres:18.1',
+      image: 'postgres:18.7',
       args: OS.mac? ? '' : '--network=host',
       env: { 'PGPASSWORD' => password },
       command: [

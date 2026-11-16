@@ -129,7 +129,7 @@ class Pgtk::PgsqlTask < Rake::TaskLib
       "-e POSTGRES_DB=#{Shellwords.escape(@dbname)}",
       '--detach',
       '--rm',
-      'postgres:18.1',
+      'postgres:18.7',
       @config.map { |k, v| "-c #{Shellwords.escape("#{k}=#{v}")}" },
       stdout:
     ).scan(/[a-f0-9]+\Z/).first
