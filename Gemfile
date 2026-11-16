@@ -23,5 +23,5 @@ gem 'simplecov', '~>0.22', require: false
 gem 'simplecov-cobertura', '~>3.0'
 gem 'threads', '~>0.4'
 gem 'timeout', '~>0.4'
-gem 'xcop', '~>0.8', require: false
+gem 'xcop', '~>0.9.0', require: false
 gem 'yard', '~>0.9', require: false
