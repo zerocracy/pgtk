@@ -151,6 +151,22 @@ class TestStash < Pgtk::Test
     end
   end
 
+  def test_tells_null_param_from_empty_string
+    fake_pool do |pool|
+      pool.exec('INSERT INTO book (title) VALUES ($1)', ['Elegant Objects'])
+      query = 'SELECT $1::text AS value FROM book LIMIT 1'
+      [[nil, ''], ['', nil]].each do |order|
+        stash = Pgtk::Stash.new(pool)
+        order.each do |param|
+          assert_equal(
+            [param], stash.exec(query, [param]).map { |row| row['value'] },
+            "the result for #{param.inspect} must not come from the cache entry of another parameter"
+          )
+        end
+      end
+    end
+  end
+
   def test_query_with_semicolon
     fake_pool do |pool|
       stash = Pgtk::Stash.new(pool)

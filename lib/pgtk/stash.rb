@@ -39,9 +39,7 @@ class Pgtk::Stash
 
   READS_RE = Regexp.new("(?<=^|\\s)(?:FROM|JOIN)\\s(#{IDENT})(?=\\s|;|$)")
 
-  SEPARATOR = ' --%*@#~($-- '
-
-  private_constant :MODS, :ALTS, :IDENT, :MODS_RE, :ALTS_RE, :READS_RE, :SEPARATOR
+  private_constant :MODS, :ALTS, :IDENT, :MODS_RE, :ALTS_RE, :READS_RE
 
   # Initialize a new Stash with query caching.
   #
@@ -251,7 +249,7 @@ class Pgtk::Stash
   end
 
   def select(pure, params, result)
-    key = params.join(SEPARATOR)
+    key = params.map { |value| value.nil? ? nil : value.to_s.dup }
     ret = @stash.dig(:queries, pure, key, :ret)
     if ret.nil? || @stash.dig(:queries, pure, key, :stale)
       tables = pure.scan(READS_RE).flatten
