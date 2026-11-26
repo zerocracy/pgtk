@@ -14,6 +14,24 @@ require_relative 'test__helper'
 # Copyright:: Copyright (c) 2017-2026 Yegor Bugayenko
 # License:: MIT
 class TestPgsqlTask < Pgtk::Test
+  def test_rejects_missing_local_postgresql
+    Dir.mktmpdir do |dir|
+      home = File.join(dir, 'pgsql')
+      Dir.mkdir(home)
+      task = Pgtk::PgsqlTask.new(:requires_local_postgres)
+      task.dir = home
+      task.yaml = File.join(dir, 'config.yml')
+      task.docker = :never
+      task.fresh = true
+      task.stub(:detect, ->(backend) { backend == :docker }) do
+        task.stub(:acquire, -> { flunk('port allocation should follow backend validation') }) do
+          assert_raises(ArgumentError) { task.__send__(:run) }
+        end
+      end
+      assert_path_exists(home)
+    end
+  end
+
   def test_docker_waits_for_database_connection
     task = Pgtk::PgsqlTask.new(:docker_readiness)
     connection = Minitest::Mock.new

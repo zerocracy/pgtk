@@ -71,6 +71,9 @@ class Pgtk::PgsqlTask < Rake::TaskLib
     if @docker == :always && !docker
       raise(ArgumentError, 'You cannot force Docker to run, because it is not installed locally')
     end
+    if @docker == :never && !local
+      raise(ArgumentError, 'Local PostgreSQL is required when Docker is disabled')
+    end
     raise(ArgumentError, "Option 'dir' is mandatory") unless @dir
     raise(ArgumentError, "Option 'yaml' is mandatory") unless @yaml
   end
