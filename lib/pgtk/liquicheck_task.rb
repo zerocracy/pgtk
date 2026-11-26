@@ -72,9 +72,9 @@ class Pgtk::LiquicheckTask < Rake::TaskLib
     on(errors, file) do
       demand(id, 'ID is empty')
       demand(path, 'logicalFilePath is empty')
-      confirm(
+      equate(
         path.gsub(/[-_.a-z]/, ''),
-        /\A#{id.gsub(/[-a-z]/, '')}\z/,
+        id.gsub(/[-a-z]/, ''),
         "ID #{id.inspect} is not the beginning of a logicalFilePath #{path.inspect}"
       )
     end

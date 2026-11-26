@@ -93,6 +93,29 @@ class TestLiquicheckTask < Pgtk::Test
     end
   end
 
+  def test_with_regex_symbols_in_id
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, 'Rakefile'), rakefile)
+      populate(
+        dir,
+        {
+          '001-some-migration.xml' => { logical_file_path: '001-some-migration.xml', id: '[', author: 'user' },
+          '002-some-migration.xml' => { logical_file_path: '002-some-migration.xml', id: '002|999', author: 'user' }
+        }
+      )
+      out, e = qbash("cd #{Shellwords.escape(dir)} && bundle exec rake liquicheck", accept: nil, both: true)
+      assert_equal(1, e, out)
+      assert_match(
+        /001-some-migration.xml.+\n.+ID "\[" is not the beginning of a logicalFilePath "001-some-migration.xml"/,
+        out
+      )
+      assert_match(
+        /002-some-migration.xml.+\n.+ID "002\|999" is not the beginning of a logicalFilePath "002-some-migration.xml"/,
+        out
+      )
+    end
+  end
+
   private
 
   def populate(dir, specs)
