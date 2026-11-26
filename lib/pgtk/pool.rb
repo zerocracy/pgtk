@@ -104,7 +104,7 @@ class Pgtk::Pool
   # allows only one connection open.
   def start!
     return if @started
-    @max.times do
+    (@max - @pool.size).times do
       @pool.push(@wire.connection)
     end
     (2 * @max).times do

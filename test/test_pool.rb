@@ -381,6 +381,29 @@ class TestPool < Pgtk::Test
     end
   end
 
+  def test_resumes_start_after_partial_failure
+    fake_config do |f|
+      real = Pgtk::Wire::Yaml.new(f)
+      calls = 0
+      flaky = Object.new
+      flaky.define_singleton_method(:connection) do
+        calls += 1
+        raise(PG::ConnectionBad, 'simulated outage during start') if calls == 2
+        real.connection
+      end
+      pool = Pgtk::Pool.new(flaky, max: 2, log: Loog::NULL)
+      assert_raises(PG::ConnectionBad, 'the first start! must fail on the second connection') do
+        pool.start!
+      end
+      pool.start!
+      assert_equal(3, calls, 'the second start! must open only the slot the first one left empty')
+      assert_equal(2, pool.instance_variable_get(:@pool).size, 'the pool must hold exactly max connections')
+      Threads.new(2).assert(10) do
+        assert_equal('42', pool.exec('SELECT 42 AS n')[0]['n'])
+      end
+    end
+  end
+
   def test_start_fails_on_broken_pool
     fake_config do |f|
       real = Pgtk::Wire::Yaml.new(f)
