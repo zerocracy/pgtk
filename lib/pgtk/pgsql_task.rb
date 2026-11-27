@@ -5,6 +5,7 @@ require 'English'
 # SPDX-License-Identifier: MIT
 
 require 'cgi'
+require 'pg'
 require 'qbash'
 require 'rake'
 require 'rake/tasklib'
@@ -144,7 +145,14 @@ class Pgtk::PgsqlTask < Rake::TaskLib
       end
     end
     begin
-      WaitUtil.wait_for_service('PG in Docker', 'localhost', port, timeout_sec: 10, delay_sec: 0.1)
+      WaitUtil.wait_for_condition('PG in Docker', timeout_sec: 10, delay_sec: 0.1) do
+        PG.connect(
+          host: 'localhost', port:, user: @user, password: @password, dbname: @dbname, connect_timeout: 1
+        ).close
+        true
+      rescue PG::Error
+        false
+      end
     rescue WaitUtil::TimeoutError => e
       raise(IOError, "Failed to start PostgreSQL Docker container #{container.inspect}: #{e.message}")
     end

@@ -14,6 +14,34 @@ require_relative 'test__helper'
 # Copyright:: Copyright (c) 2017-2026 Yegor Bugayenko
 # License:: MIT
 class TestPgsqlTask < Pgtk::Test
+  def test_docker_waits_for_database_connection
+    task = Pgtk::PgsqlTask.new(:docker_readiness)
+    connection = Minitest::Mock.new
+    connection.expect(:close, nil)
+    attempts = []
+    connect =
+      lambda do |**options|
+        attempts << options
+        raise(PG::ConnectionBad, 'the database system is starting up') if attempts.size == 1
+        connection
+      end
+    Dir.mktmpdir do |dir|
+      task.stub(:qbash, 'abc123') do
+        task.stub(:at_exit, ->(&block) {}) do
+          PG.stub(:connect, connect) do
+            assert_equal('abc123', task.__send__(:dockerize, dir, nil, 54_321))
+          end
+        end
+      end
+    end
+    assert_equal(2, attempts.size)
+    assert_equal(
+      { host: 'localhost', port: 54_321, user: 'test', password: 'test', dbname: 'test', connect_timeout: 1 },
+      attempts.last
+    )
+    connection.verify
+  end
+
   def test_basic
     Dir.mktmpdir do |dir|
       Pgtk::PgsqlTask.new(:p2) do |t|
