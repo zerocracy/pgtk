@@ -42,6 +42,44 @@ class TestPgsqlTask < Pgtk::Test
     connection.verify
   end
 
+  def test_local_waits_for_database_connection
+    task = Pgtk::PgsqlTask.new(:local_readiness)
+    connection = Minitest::Mock.new
+    connection.expect(:close, nil)
+    attempts = []
+    connect =
+      lambda do |**options|
+        attempts << options
+        raise(PG::ConnectionBad, 'the database system is starting up') if attempts.size == 1
+        connection
+      end
+    Dir.mktmpdir do |dir|
+      task.dir = dir
+      command =
+        lambda do |*args, **_options|
+          assert_equal(2, attempts.size) if args.first == 'createdb'
+          ''
+        end
+      task.stub(:qbash, command) do
+        task.stub(:at_exit, ->(&block) {}) do
+          Process.stub(:spawn, 123) do
+            PG.stub(:connect, connect) do
+              WaitUtil.stub(:wait_for_service, nil) do
+                assert_equal(123, task.__send__(:localize, dir, nil, 54_321))
+              end
+            end
+          end
+        end
+      end
+    end
+    assert_equal(2, attempts.size)
+    assert_equal(
+      { host: 'localhost', port: 54_321, user: 'test', password: 'test', dbname: 'postgres', connect_timeout: 1 },
+      attempts.last
+    )
+    connection.verify
+  end
+
   def test_basic
     Dir.mktmpdir do |dir|
       Pgtk::PgsqlTask.new(:p2) do |t|

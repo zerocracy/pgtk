@@ -130,7 +130,7 @@ class Pgtk::PgsqlTask < Rake::TaskLib
       "-e POSTGRES_DB=#{Shellwords.escape(@dbname)}",
       '--detach',
       '--rm',
-      'postgres:18.1',
+      'postgres:18.7',
       @config.map { |k, v| "-c #{Shellwords.escape("#{k}=#{v}")}" },
       stdout:
     ).scan(/[a-f0-9]+\Z/).first
@@ -189,7 +189,14 @@ class Pgtk::PgsqlTask < Rake::TaskLib
       puts("PostgreSQL killed in PID #{pid}") unless @quiet
     end
     begin
-      WaitUtil.wait_for_service('PG in local', 'localhost', port, timeout_sec: 10, delay_sec: 0.1)
+      WaitUtil.wait_for_condition('PG in local', timeout_sec: 10, delay_sec: 0.1) do
+        PG.connect(
+          host: 'localhost', port:, user: @user, password: @password, dbname: 'postgres', connect_timeout: 1
+        ).close
+        true
+      rescue PG::Error
+        false
+      end
     rescue WaitUtil::TimeoutError => e
       puts("+ #{cmd}")
       puts("stdout:\n#{File.read(File.join(home, 'stdout.txt'))}")
