@@ -32,7 +32,7 @@ class Pgtk::LiquibaseTask < Rake::TaskLib
     @quiet = false
     @contexts = ''
     @liquibase = '3.2.2'
-    @postgresql = '42.7.0'
+    @postgresql = '42.7.15'
     desc('Deploy Liquibase changes to the running PostgreSQL server') unless ::Rake.application.last_description
     task(name, *args) do |_, task_args|
       RakeFileUtils.verbose(true) do
