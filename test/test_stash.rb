@@ -151,6 +151,31 @@ class TestStash < Pgtk::Test
     end
   end
 
+  def test_keeps_whitespace_inside_literals
+    fake_pool do |pool|
+      stash = Pgtk::Stash.new(pool)
+      stash.exec("INSERT INTO book (title) VALUES ('a  b')")
+      assert_equal(['a  b'], pool.exec('SELECT title FROM book').map { |row| row['title'] })
+      assert_equal(
+        [['a  b'], ['a b']],
+        ["'a  b'", "'a b'"].map do |literal|
+          stash.exec("SELECT #{literal} AS value\n  FROM book LIMIT 1").map { |row| row['value'] }
+        end,
+        'each literal must reach PostgreSQL as written and get its own cache entry'
+      )
+    end
+  end
+
+  def test_tracks_table_past_unbalanced_quote
+    fake_pool do |pool|
+      stash = Pgtk::Stash.new(pool)
+      query = "SELECT $$it's$$ AS v, COUNT(*) AS c FROM\n  book WHERE title <> 'x'"
+      assert_equal('0', stash.exec(query)[0]['c'])
+      stash.exec("INSERT INTO\n  book (title) VALUES ('y')")
+      assert_equal('1', stash.exec(query)[0]['c'], 'the write must reach the cached read of the same table')
+    end
+  end
+
   def test_query_with_semicolon
     fake_pool do |pool|
       stash = Pgtk::Stash.new(pool)

@@ -35,13 +35,15 @@ class Pgtk::Stash
   IDENT = '[a-z_][a-z0-9_]*'
 
   ALTS = ['UPDATE', 'INSERT INTO', 'DELETE FROM', 'TRUNCATE', 'ALTER TABLE', 'DROP TABLE'].freeze
-  ALTS_RE = Regexp.new("(?<=^|\\s)(?:#{ALTS.join('|')})\\s(#{IDENT})(?=[^a-z0-9_]|$)")
+  ALTS_RE = Regexp.new("(?<=^|\\s)(?:#{ALTS.map { |a| a.sub(' ', '\\s+') }.join('|')})\\s+(#{IDENT})(?=[^a-z0-9_]|$)")
 
-  READS_RE = Regexp.new("(?<=^|\\s)(?:FROM|JOIN)\\s(#{IDENT})(?=\\s|;|$)")
+  READS_RE = Regexp.new("(?<=^|\\s)(?:FROM|JOIN)\\s+(#{IDENT})(?=\\s|;|$)")
 
   SEPARATOR = ' --%*@#~($-- '
 
-  private_constant :MODS, :ALTS, :IDENT, :MODS_RE, :ALTS_RE, :READS_RE, :SEPARATOR
+  QUOTED_OR_SPACE = /'(?:[^']|'')*'|"(?:[^"]|"")*"|\s+/
+
+  private_constant :MODS, :ALTS, :IDENT, :MODS_RE, :ALTS_RE, :READS_RE, :SEPARATOR, :QUOTED_OR_SPACE
 
   # Initialize a new Stash with query caching.
   #
@@ -120,7 +122,7 @@ class Pgtk::Stash
   # @param [Integer] result Result format code
   # @return [PG::Result] Query result object
   def exec(query, params = [], result = 0)
-    pure = (query.is_a?(Array) ? query.join(' ') : query).gsub(/\s+/, ' ').strip
+    pure = normalized(query.is_a?(Array) ? query.join(' ') : query)
     if MODS_RE.match?(pure) || /(^|\s)pg_[a-z_]+\(/.match?(pure)
       modify(pure, params, result)
     else
@@ -139,6 +141,18 @@ class Pgtk::Stash
   end
 
   private
+
+  # Collapse every run of whitespace into one space and strip the ends,
+  # while leaving quoted literals and identifiers as they are, since their
+  # contents are data that PostgreSQL must receive unchanged. Only plain
+  # '' and "" quoting is recognized: after an E'' escape, a dollar-quoted
+  # body or a comment with a quote in it, the quotes that follow pair up
+  # the other way round, so some whitespace outside literals stays as it
+  # is, which is why the regular expressions above accept any run of it,
+  # and the spaces inside a later literal may still be collapsed.
+  def normalized(sql)
+    sql.gsub(QUOTED_OR_SPACE) { |m| m.start_with?("'", '"') ? m : ' ' }.strip
+  end
 
   def queries
     @stash[:queries].map do |q, kk|
@@ -258,7 +272,7 @@ class Pgtk::Stash
       tables.uniq!
       marks = tables.to_h { |t| [t, @stash[:table_mod][t]] }
       ret = @pool.exec(pure, params, result)
-      cache(pure, key, params, result, ret, tables, marks) unless pure.include?(' NOW() ')
+      cache(pure, key, params, result, ret, tables, marks) unless pure.match?(/\sNOW\(\)\s/)
     end
     bump(pure, key) if @stash.dig(:queries, pure, key)
     ret
